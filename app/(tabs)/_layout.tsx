@@ -13,7 +13,11 @@ export default function TabLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          shadowOffset: { height: 0, width: 0 },
+          shadowRadius: 0,
         },
       }}>
       <Tabs.Screen

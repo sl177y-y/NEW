@@ -9,9 +9,12 @@ const lightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#2196F3',
-    secondary: '#009688',
-    tertiary: '#FF9800',
+    primary: '#007BFF',      
+    secondary: '#00C49F',    
+    tertiary: '#FF7C00',     
+    background: '#F4F7FC',
+    surface: '#FFFFFF',
+    error: '#D32F2F',
   },
 };
 
@@ -19,9 +22,12 @@ const darkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#64B5F6',
-    secondary: '#4DB6AC',
-    tertiary: '#FFB74D',
+    primary: '#4DA3FF',      
+    secondary: '#00E0B8',    
+    tertiary: '#FF9933',     
+    background: '#121212',
+    surface: '#1E1E1E',
+    error: '#FF6F6F',
   },
 };
 

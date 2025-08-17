@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, useWindowDimensions, Linking } from 'react-native';
 import {
   Card,
   Text,
@@ -19,6 +19,7 @@ interface Product {
   description: string;
   brand: string;
   rating: number;
+  productUrl: string;
   why?: string;
 }
 
@@ -28,11 +29,17 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+
+  const handleLinkPress = () => {
+    Linking.openURL(product.productUrl);
+  };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
     }).format(price);
   };
@@ -64,14 +71,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-      <View style={styles.cardContent}>
+      <View style={[styles.cardContent, isTablet && styles.cardContentTablet]}>
         <Image 
           source={{ uri: product.imageUrl }} 
-          style={styles.productImage}
+          style={[styles.productImage, isTablet && styles.productImageTablet]}
           resizeMode="cover"
         />
         
-        <View style={styles.productInfo}>
+        <View style={[styles.productInfo, isTablet && styles.productInfoTablet]}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <Text style={[styles.productName, { color: theme.colors.onSurface }]} numberOfLines={2}>
@@ -80,7 +87,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <IconButton
                 icon={() => <ExternalLink size={20} color={theme.colors.primary} />}
                 size={20}
-                onPress={() => {}}
+                onPress={handleLinkPress}
               />
             </View>
             
@@ -148,14 +155,27 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 16,
   },
+  cardContentTablet: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
   productImage: {
     width: '100%',
-    height: 200,
+    aspectRatio: 16 / 9,
     borderRadius: 12,
     marginBottom: 16,
   },
+  productImageTablet: {
+    flex: 1,
+    maxWidth: 300,
+    marginBottom: 0,
+  },
   productInfo: {
     flex: 1,
+  },
+  productInfoTablet: {
+    flex: 2,
   },
   header: {
     marginBottom: 12,

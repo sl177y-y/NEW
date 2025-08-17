@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -19,13 +19,14 @@ import {
   Card,
   Chip,
   useTheme,
-  Snackbar
+  Snackbar,
+  IconButton
 } from 'react-native-paper';
 import * as Animatable from 'react-native-animatable';
-import * as Speech from 'expo-speech';
-import { Mic, MicOff, Sparkles } from 'lucide-react-native';
+import { Wand2, Sparkles, Search } from 'lucide-react-native';
 import { PRODUCT_CATALOG } from '@/src/catalog';
 import ProductCard from '@/src/components/ProductCard';
+import { useApiKeyStore } from '@/src/state/apiKey';
 
 interface Product {
   id: string;
@@ -37,21 +38,29 @@ interface Product {
   description: string;
   brand: string;
   rating: number;
+  productUrl: string;
 }
 
 interface Recommendation extends Product {
   why: string;
+  productUrl: string;
 }
 
 const SAMPLE_QUERIES = [
-  "I need a lightweight laptop for travel with good battery life",
-  "Budget smartphone under $500 with great camera",
-  "Noise-cancelling headphones for work from home",
-  "Gaming laptop with RTX graphics under $2000",
-  "Wireless earbuds for running and workouts"
+  "I'm looking for a way to relieve neck pain",
+  "I want a device to help with hair growth",
+  "I need a way to monitor my heart health at home",
+  "I'm looking for a smart robot for my kids",
+  "I want a good pair of headphones for listening to music"
 ];
 
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
+const wittyLoadingMessages = [
+  "Consulting the digital oracle...",
+  "Warming up the AI brain cells...",
+  "Searching the product cosmos...",
+  "Crafting recommendations just for you...",
+  "Asking the silicon sages for advice...",
+];
 
 export default function AdvisorScreen() {
   const theme = useTheme();
@@ -59,8 +68,81 @@ export default function AdvisorScreen() {
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [error, setError] = useState('');
-  const [isListening, setIsListening] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const { apiKey } = useApiKeyStore();
+
+  const improvePrompt = async () => {
+    if (!query.trim()) {
+      Alert.alert('No Query', 'Please enter a query first to improve it.');
+      return;
+    }
+
+    if (!apiKey) {
+      Alert.alert('API Key Required', 'Please configure your Gemini API key in Settings first.');
+      return;
+    }
+
+    try {
+      const improvePromptText = `
+You are a product search expert. Transform the user's basic query into a comprehensive 2-3 line search request that will help AI find the best products.
+
+Available Product Categories:
+- Healthtech and Wellness (pain relief devices, massagers, health monitors, wellness gadgets)
+- Personal Care (hair dryers, styling tools, grooming devices)
+- Entertainment (headphones, speakers, projectors, gaming accessories, toys, robots)
+- Kitchen Appliances (cooking robots, coffee machines, smart kitchen devices)
+- Home Improvement (vacuum cleaners, air purifiers, smart home devices, cleaning tools)
+- Travel & Lifestyle (smart luggage, backpacks, travel accessories)
+- Smart Mobility (wheelchairs, scooters, hoverboards, electric vehicles)
+- Security & Surveillance (smart locks, cameras, doorbells, dash cams)
+
+Original Query: "${query}"
+
+Transform this into a detailed 2-3 line query that includes:
+1. Specific use case or problem to solve
+2. Key features or requirements the user might need
+3. Context about when/how they'll use it
+
+Example transformations:
+"headphones" → "I need high-quality headphones for daily music listening and gaming sessions. Looking for comfortable over-ear design with good bass response. Will be used for long periods at home and during commutes."
+
+"vacuum cleaner" → "I want a smart robot vacuum for automated home cleaning that can handle pet hair and dust. Need advanced navigation to clean efficiently without getting stuck. Looking for scheduling features and powerful suction for deep carpet cleaning."
+
+Improved Query (2-3 lines):
+`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: improvePromptText
+              }]
+            }]
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to improve prompt');
+      }
+
+      const data = await response.json();
+      const improvedQuery = data.candidates[0].content.parts[0].text.trim();
+      
+      setQuery(improvedQuery);
+      setSnackbarVisible(true);
+      
+    } catch (error) {
+      Alert.alert('Error', 'Failed to improve prompt. Please try again.');
+    }
+  };
 
   const getRecommendations = async () => {
     if (!query.trim()) {
@@ -68,32 +150,47 @@ export default function AdvisorScreen() {
       return;
     }
 
-    if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-      setError('Please configure your Gemini API key');
+    if (!apiKey) {
+      setError('Please configure your Gemini API key in Settings');
       return;
     }
 
     setLoading(true);
     setError('');
     setRecommendations([]);
+    setLoadingMessage(wittyLoadingMessages[Math.floor(Math.random() * wittyLoadingMessages.length)]);
 
     try {
-      const prompt = `
-You are an expert product advisor. A user has asked: "${query}"
+      const enhancedPrompt = `
+You are an expert AI Product Advisor with deep knowledge of consumer electronics, health tech, and smart devices. 
 
-Here is our complete product catalog:
+USER QUERY: "${query}"
+
+PRODUCT CATALOG:
 ${JSON.stringify(PRODUCT_CATALOG, null, 2)}
 
-Please analyze the user's query and recommend the top 3-5 most suitable products from this catalog. Consider:
-- User's specific needs and preferences mentioned in the query
-- Product features that match the requirements
-- Price considerations if budget is mentioned
-- Category relevance
-- Brand reputation and ratings
+INSTRUCTIONS:
+1. Analyze the user's query to understand their:
+   - Primary needs and pain points
+   - Budget considerations (if mentioned)
+   - Use case scenarios
+   - Preferences (brand, features, etc.)
 
-For each recommendation, provide a clear explanation of why it matches the user's needs.
+2. From the provided catalog, select the TOP 3-5 most relevant products that:
+   - Directly address the user's stated needs
+   - Offer the best value proposition
+   - Have complementary features that enhance the solution
+   - Consider alternative approaches to their problem
 
-Respond with a JSON array in this EXACT format:
+3. For each recommendation, provide:
+   - A personalized explanation of WHY this product matches their needs
+   - How it solves their specific problem
+   - Key features that matter most for their use case
+   - Any potential limitations or considerations
+
+4. Rank recommendations by relevance and value to the user.
+
+RESPONSE FORMAT (JSON only, no additional text):
 [
   {
     "id": "product_id",
@@ -105,7 +202,8 @@ Respond with a JSON array in this EXACT format:
     "description": "description",
     "brand": "brand",
     "rating": 4.5,
-    "why": "Detailed explanation of why this product matches the user's query, highlighting specific features and benefits that align with their needs."
+    "productUrl": "product_url",
+    "why": "Comprehensive explanation tailored to the user's specific needs, highlighting how this product uniquely addresses their requirements and the benefits they'll experience."
   }
 ]
 
@@ -113,12 +211,12 @@ IMPORTANT:
 - Only recommend products that exist in the catalog
 - Provide thoughtful, personalized explanations
 - Consider the user's specific context and requirements
-- If no perfect matches exist, recommend the closest alternatives
-- Ensure the response is valid JSON only, no additional text
+- If no perfect matches exist, recommend the closest alternatives with honest limitations
+- Ensure the response is valid JSON only
 `;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -127,7 +225,7 @@ IMPORTANT:
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: prompt
+                text: enhancedPrompt
               }]
             }]
           })
@@ -158,20 +256,6 @@ IMPORTANT:
     }
   };
 
-  const startVoiceInput = () => {
-    if (Platform.OS === 'web') {
-      setSnackbarVisible(true);
-      return;
-    }
-    // Voice input would be implemented here for native platforms
-    setIsListening(true);
-    // Simulate voice input for demo
-    setTimeout(() => {
-      setIsListening(false);
-      setQuery("I need a lightweight laptop for travel");
-    }, 2000);
-  };
-
   const handleSampleQuery = (sampleQuery: string) => {
     setQuery(sampleQuery);
   };
@@ -197,8 +281,8 @@ IMPORTANT:
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header style={styles.header}>
         <Appbar.Content 
           title="AI Product Advisor" 
           titleStyle={styles.headerTitle}
@@ -206,103 +290,105 @@ IMPORTANT:
         <Sparkles size={24} color={theme.colors.primary} />
       </Appbar.Header>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Animatable.View animation="fadeInUp" duration={800} style={styles.inputSection}>
-          <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-            Describe what you're looking for and get personalized recommendations
-          </Text>
-          
-          <View style={styles.inputContainer}>
-            <TextInput
-              mode="outlined"
-              label="What product are you looking for?"
-              placeholder="e.g., I need a lightweight laptop for travel with good battery life"
-              value={query}
-              onChangeText={setQuery}
-              multiline
-              numberOfLines={3}
-              style={styles.textInput}
-              disabled={loading}
-            />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
+        <ScrollView 
+          style={[styles.content, { backgroundColor: theme.colors.background }]} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ backgroundColor: theme.colors.background }}
+        >
+          <Animatable.View animation="fadeInUp" duration={800} style={styles.inputSection}>
+            <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+              Describe what you're looking for and get personalized recommendations
+            </Text>
             
+            <View style={styles.inputContainer}>
+              <TextInput
+                mode="outlined"
+                label="What product are you looking for?"
+                placeholder="e.g., I need a lightweight laptop for travel"
+                value={query}
+                onChangeText={setQuery}
+                multiline
+                numberOfLines={3}
+                style={styles.textInput}
+                disabled={loading}
+                left={<TextInput.Icon icon={() => <Search size={20} color={theme.colors.onSurfaceVariant} />} />}
+              />
+              
+              <IconButton
+                mode="outlined"
+                onPress={improvePrompt}
+                style={styles.improveButton}
+                disabled={loading}
+                icon={() => <Wand2 size={20} color={theme.colors.primary} />}
+              />
+            </View>
+
             <Button
-              mode="outlined"
-              onPress={startVoiceInput}
-              style={styles.voiceButton}
-              disabled={loading}
-              icon={() => isListening ? 
-                <MicOff size={20} color={theme.colors.primary} /> : 
-                <Mic size={20} color={theme.colors.primary} />
-              }
+              mode="contained"
+              onPress={getRecommendations}
+              loading={loading}
+              disabled={loading || !query.trim()}
+              style={styles.submitButton}
+              contentStyle={styles.submitButtonContent}
             >
-              {isListening ? 'Listening...' : 'Voice'}
+              Get AI Recommendations
             </Button>
-          </View>
 
-          <Button
-            mode="contained"
-            onPress={getRecommendations}
-            loading={loading}
-            disabled={loading || !query.trim()}
-            style={styles.submitButton}
-            contentStyle={styles.submitButtonContent}
-          >
-            Get AI Recommendations
-          </Button>
+            {error ? (
+              <Animatable.View animation="shake">
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {error}
+                </Text>
+              </Animatable.View>
+            ) : null}
+          </Animatable.View>
 
-          {error ? (
-            <Animatable.View animation="shake">
-              <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                {error}
+          {!loading && recommendations.length === 0 && !error && renderSampleQueries()}
+
+          {loading && (
+            <Animatable.View animation="fadeIn" style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
+                {loadingMessage}
               </Text>
             </Animatable.View>
-          ) : null}
-        </Animatable.View>
+          )}
 
-        {!loading && recommendations.length === 0 && !error && renderSampleQueries()}
-
-        {loading && (
-          <Animatable.View animation="fadeIn" style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>
-              Analyzing your request and finding the best matches...
-            </Text>
-          </Animatable.View>
-        )}
-
-        {recommendations.length > 0 && (
-          <Animatable.View animation="fadeInUp" duration={600} delay={200}>
-            <Text style={[styles.resultsTitle, { color: theme.colors.onSurface }]}>
-              Recommended for you
-            </Text>
-            <FlatList
-              data={recommendations}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item, index }) => (
-                <Animatable.View 
-                  animation="fadeInUp" 
-                  duration={600} 
-                  delay={100 * index}
-                >
-                  <ProductCard product={item} />
-                </Animatable.View>
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
-          </Animatable.View>
-        )}
-      </ScrollView>
+          {recommendations.length > 0 && (
+            <Animatable.View animation="fadeInUp" duration={600} delay={200}>
+              <Text style={[styles.resultsTitle, { color: theme.colors.onSurface }]}>
+                Recommended for you
+              </Text>
+              <FlatList
+                data={recommendations}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item, index }) => (
+                  <Animatable.View 
+                    animation="fadeInUp" 
+                    duration={600} 
+                    delay={100 * index}
+                  >
+                    <ProductCard product={item} />
+                  </Animatable.View>
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            </Animatable.View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
 
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
       >
-        Voice input is not available in web preview. Try in Expo Go app!
+        Query improved! The enhanced version should give better results.
       </Snackbar>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -310,9 +396,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    shadowOffset: { height: 1, width: 0 },
+  },
   content: {
     flex: 1,
     padding: 16,
+    paddingBottom: 0, // Remove bottom padding to eliminate gap above tab bar
   },
   headerTitle: {
     fontWeight: '700',
@@ -336,8 +432,10 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
   },
-  voiceButton: {
+  improveButton: {
     marginBottom: 8,
+    minWidth: 56,
+    justifyContent: 'center',
   },
   submitButton: {
     marginTop: 8,
