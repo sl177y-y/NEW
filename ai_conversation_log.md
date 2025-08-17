@@ -2,7 +2,7 @@
 
 ## Development Session 1: Project Setup & Initial Planning
  
-**AI Assistant**: Claude4sonnet and ChatGPT5
+**AI Assistant**: Claude4sonnet and ChatGPT5 and Copilot
 
 ### Developer Query 1:
 "I need to build a React Native app for product recommendations using AI. The app should use Expo, integrate with Google Gemini API, and have a modern UI. What's the best project structure?"
