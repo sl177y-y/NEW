@@ -13,7 +13,7 @@ import {
   Button
 } from 'react-native-paper';
 import { Settings as SettingsIcon, Key, Info } from 'lucide-react-native';
-import { useApiKeyStore } from '@/src/state/apiKey';
+import { useApiKeyStore } from '../../src/state/apiKey';
 
 export default function SettingsScreen() {
   const theme = useTheme();

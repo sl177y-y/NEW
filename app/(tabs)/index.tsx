@@ -24,9 +24,9 @@ import {
 } from 'react-native-paper';
 import * as Animatable from 'react-native-animatable';
 import { Wand2, Sparkles, Search } from 'lucide-react-native';
-import { PRODUCT_CATALOG } from '@/src/catalog';
-import ProductCard from '@/src/components/ProductCard';
-import { useApiKeyStore } from '@/src/state/apiKey';
+import { useApiKeyStore } from '../../src/state/apiKey';
+import ProductCard from '../../src/components/ProductCard';
+import { PRODUCT_CATALOG } from '../../src/catalog';
 
 interface Product {
   id: string;
